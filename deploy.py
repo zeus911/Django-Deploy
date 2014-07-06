@@ -1,0 +1,374 @@
+#!/usr/bin/env python
+
+import os, sys
+
+###  import of config stuff
+from deploy_settings import *
+
+exempt = dir()
+exempt.append('exempt')
+exempt.append('localcmds')
+
+######  Put functions that CAN be used as commands from the command line
+######  in this section.
+
+def export_db(options):
+    '''
+    Exports a database from the named stack to the filename you provide.
+    Accepts up to four arguments:
+        stack - which stack you want to export from
+        filename - filename the exported DB is saved to
+        homedir - directory where export file is saved to
+        project - the project to export the DB from, if unspecified,
+            DB will be exported from all projects in the stack
+        db_format - format of saved file, either json or xml
+            (yaml is available if installed in the site python)
+    '''
+    
+### These next two lines are as ugly as the sin of politics, but, wow,
+### they would have made the code that follows so much cleaner
+    for item in options.keys():
+        print item, options[item]
+        exec(item+' = "'+options[item]+'"')
+
+    savedir = options['savedir']
+    stack = options['stack']
+    stackdir = options['stackdir']
+    filename = options['filename']
+
+    if 'projects' not in options.keys() and 'project' in options.keys():
+        projects = {options['project']: options['project']}
+    elif 'projects' not in options.keys() and 'project' not in options.keys():
+        projects = {stack: stack}
+        project = stack
+    else:
+        projects = options['projects']
+
+    _check_dir(savedir)
+
+    if 'db_format' not in options.keys():
+        db_format = 'json'
+    else:
+        db_format = options['db_format']
+
+    if 'project' not in options.keys():
+        os.chdir(stackdir)
+        sys.path.append(stackdir)
+        exec('from  '+stack+'_settings import projects')
+        for project in projects.keys():
+            project_location = stackdir+'/'+stack+'/'+project
+            os.chdir(project_location)
+            print os.getcwd()
+            _export(filename, format, projects[project]+'.settings')
+
+    else:
+        project = options['project']
+        project_location = stackdir+'/'+stack+'/'+project
+        mod_location = project_location+'/manage.py'
+        os.chdir(project_location)
+        mod_settings_obj = _get_module_setting(mod_location)
+        _export(savedir+'/'+filename, db_format, mod_settings_obj)
+
+    
+def import_db():
+    '''
+    Imports the database data contained in filename into the database.
+    Accepts up to four arguments:
+        stack - which stack you want to export from
+        filename - filename the exported DB is saved to
+        homedir - directory where export file is saved to
+        db_format - format of saved file, either json or xml
+            (yaml is available if installed in the site python)
+    Not Completed.
+    '''
+
+    pass
+
+def clear_db():
+    '''
+    Deletes the contents for a database of a stack.  Used to clear a database
+    in preperation of importing new schema and data as part of a deploy process.
+    '''
+    
+    pass
+
+def pull_db():
+    '''
+    Pulls a DB file from our GitHub repository.  Requires the GitHub repository 
+    be described in a conf file.
+    Not completed.
+    '''
+
+    pass
+
+def push_db():
+    '''
+    Pushes a DB file into our GitHub repository.  Requires the GitHub repository
+    be described in a conf file.
+    Not completed.
+    '''
+
+    pass
+
+def pull_site():
+    '''
+    Pulls the site (project and app) code from our GitHub repository.  Requires 
+    the GitHub repsoitory be describes in a conf file.  Accepts up to three 
+    arugements:
+        branch - the name of the branch to pull
+        version - which version of the site code to pull
+        stack - load the code into which stack, such as dev, test, stage, prod
+            creates stack if it does not exist        
+    Not completed.
+    '''
+
+    pass
+
+def create_stack(options):
+    '''
+    Creates a stack (both the directory structure and config file) with the 
+    provided name, and with provided options.  These include:
+        port - specify the post to use [optional]
+        project - project to start, if empty, creates project named after the
+            stack
+        app - application and setting filename in a project [optional]
+            if empty, uses project name for setting filename
+    Not completed.
+    '''
+
+    print options
+    stackdir = options['stackdir']
+    stack = options['stack']
+    _check_dir(stackdir)
+    if 'project' not in options.keys():
+        options['project'] = options['stack']
+    else: project = options['project']
+    if 'port_range' not in options.keys():
+        options['port_range'] = '(8000, 8009)' 
+    if 'app' not in options.keys():
+        app = options['project']
+    else: app = options['app']
+    if stack not in _get_stacks(stackdir):    
+        os.mkdir(stackdir+'/'+stack)
+        os.mknod(stackdir+'/'+stack+'_settings.py')
+        _populate_settings(stack, stackdir, options)
+
+    ###  Need to put a call to manage.py to install a django project into 
+    ###  a stack.  Need to decide how it is going to support multiple
+    ###  projects in a stack, and importing from git/GitHub.
+
+    os.chdir(stackdir+'/'+stack)
+    if 'project' in options.keys():
+        project = options['project']
+        _add_project(stackdir+'/'+stack, project, app)
+
+def delete_stack():
+    '''
+    Deletes the named stack, both the directory structure and the config file.  
+    Will halt the app if it is currently running.
+    Not completed.
+    '''
+
+    pass
+
+######  End functions called from command line section.
+
+localcmds = []
+for cmd in dir():
+	if cmd not in exempt:
+	    localcmds.append(cmd)
+
+######  Place function definitions that CAN NOT be used as commands from the
+######  command line BELOW this line.
+
+def _populate_settings(stack, stackdir, options = {'port_range': '(8000, 8010)'}):
+    '''
+    Add standard options into the [stack]_settings.py file.
+    '''
+
+    ###  options_txt is a text blob that contains the default options and
+    ###  comments for the [stack]_settings.py file.  Add a line to the file
+    ###  by adding a line to the text blob.  Options within the file are
+    ###  bracketted by percens, '%%...%%'.  The text between the percens 
+    ###  is a dictionary keyword that replaces the token with its value.
+
+    options_txt = '''
+###  Default options for the [stack]_settings.py file for each stack.
+###  
+
+port_range = '''+"'"+options['port_range']+"'"+'''
+
+###  contains a dictionary of the projects within a stack as the keys,
+###  and the name of the application settings file as the values
+
+projects = {
+'''
+
+    if 'projects' not in options.keys():
+        if 'project' not in options.keys():
+            options['project'] = stack
+        if 'app' not in options.keys():
+            options['app'] = options['project']
+        options['projects'] = {options['project']: options['app']} 
+    for project in options['projects'].keys():
+        options_txt = options_txt+"    '"+project+"': '"+options['projects'][project]+"',"
+
+    options_txt = options_txt+'''
+    }
+    '''
+
+    _write_file(stackdir+'/'+stack+'_settings.py', options_txt)
+
+def _write_file(filename, text):
+    '''
+    Write (output) a file.  Provide filename with complete path, and a
+    text blob.
+    '''
+
+    file = open(filename, 'w+')
+    file.write(text)
+    file.close
+
+def _get_stacks(stackdir):
+    '''
+    Gets the list of stacks currently configured on the system.
+    '''
+    stacks = []
+    for file in os.listdir(stackdir):
+        if os.path.isdir(stackdir+'/'+file):
+            stacks.append(file)
+    return stacks
+
+def _check_dir(dir):
+    '''
+    Check that the directory [dir] exists, and creates it if it does
+    not.  For managing the tmp, save, and stack directories.
+    '''
+    if not os.path.isdir(dir) and not os.path.isfile(dir):
+        os.mkdir(dir)
+        os.chmod(dir, 0755)
+
+def _get_module_settings(mod_location):
+    '''
+    Gets the project and module settings location from the stack
+    manage.py file
+    '''
+
+    ###  This is a fugly way of doing this.  Rethink this and find an
+    ###  more elegant way to get this done.
+
+    with open(mod_location, 'r') as file:
+        for line in file:
+            if 'os.environ.setdefault' in line and 'DJANGO_SETTINGS_MODULE' in line:
+                return line.split()[1][1:-2]
+    file.close()
+
+def _export(filename, db_format, mod_settings_obj):
+    '''
+    Export function, handles the call to the django management core
+    '''
+
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", mod_settings_obj)
+    from django.core.management import execute_from_command_line
+
+    sys.argv = ['manage.py', 'dumpdata', '--format', format]
+    #sys.argv = ['manage.py', 'dumpdata', '--output', filename, '--format', db_format]
+    print os.getcwd()
+    execute_from_command_line(sys.argv)
+
+def _add_project(stack_dir, project, app = ''):
+    '''
+    Creates the project infrastructure, projects.py files and populates it 
+    with the projects within the stack.  If app is specified, also creates it.
+    '''
+
+    from django.core.management import execute_from_command_line
+    execute_from_command_line(['django-admin.py', 'startproject', project])
+    
+    print options
+    stack = stack_dir.split('/')[-1]
+    stackdir = stack_dir[0:-(1+len(stack))]
+    project_file = stackdir+'_settings'
+
+    sys.path.append(stackdir)
+    exec('from '+stack+'_settings import *')
+
+    _populate_settings(stack, stackdir, options)
+
+    pwd = os.getcwd()
+    os.chdir(project)    
+    if app != '':
+        #  Create an app within the project.  Need to refactor to make
+        #  multiple apps
+        cmd = ['django-admin.py', 'startapp', app]
+        execute_from_command_line(cmd)
+    else:
+        cmd = ['django-admin.py', 'startapp', project]
+        execute_from_command_line(cmd)
+    os.chdir(pwd)
+
+helpstring = [
+    '''
+    Usage: deploy.py command [stack] [[option1] [parameter1] 
+        [option2] [parameter2]...]
+
+    A deploy script to help manage django projects.  Assists with
+    importing and exporting database files, pulling a project down
+    from GitHub (with help of appropriate configuration files), etc.
+
+    It introduces the concept of stacks to django projects.  A stack
+    is a directory structure that contains a django project, and some
+    deploy.py specific config files.  It is inspired by the DevOps
+    stacks (dev, test, staging, production), and are assumed to be
+    used in a similar fashion, with each stack being an independent
+    installation for a specific purpose.  The name of the stack should
+    reflect that purpose.  Eventually, the deploy.py script will
+    support specifying branches and versions for the code base and
+    database installed within a stack.  
+    This is not complete yet.
+    ''', 
+
+    '''
+    The deploy.py script can also be used in the same manner as the
+    manage.py script.  Just specify stack, then the usual manage.py
+    commands and options as normal: 
+        python deploy.py test runserver 8001 
+    Multiple stacks can be specified as a tuple:
+	    python deploy.py (test, stage, prod) create_stack
+    ''', 
+
+    ''' 
+    The options can be used in this fashion are as follows: 
+    ''',
+
+    ]
+
+if len(sys.argv) == 1:
+    print helpstring[0]
+    print
+    print "Local commands:"
+    for cmd in localcmds:
+        print cmd+":"
+        exec('print '+cmd+'.__doc__')
+        print
+    print helpstring[2]
+    from django.core.management import execute_from_command_line
+    execute_from_command_line()
+
+elif sys.argv[1] in localcmds:
+    cmd = sys.argv[1]
+    options['stack'] = sys.argv[2]
+    for argv in range(0, len(sys.argv[3:])/2):
+        options[sys.argv[3+(argv*2)]] = sys.argv[4+(argv * 2)]
+    call = globals()[cmd]
+    call(options)
+
+#elif __name__ == "__main__":
+#    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "deploy_settings")
+
+#    from django.core.management import execute_from_command_line
+
+#    sys.argv[0]='django-admin.py'
+#    execute_from_command_line(sys.argv)
+
+
