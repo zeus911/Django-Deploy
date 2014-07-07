@@ -139,14 +139,14 @@ def create_stack(options):
         options['port_range'] = '(8000, 8009)' 
     if stack not in _get_stacks(stackdir):    
         os.mkdir(stackdir+'/'+stack)
-        os.mknod(stackdir+'/'+stack+'_settings.py')
-        _populate_settings(stack, stackdir, options)
+        os.mknod(stackdir+'/'+stack+'/settings.py')
 
     ###  Need to put a call to manage.py to install a django project into 
     ###  a stack.  Need to decide how it is going to support multiple
     ###  projects in a stack, and importing from git/GitHub.
 
     os.chdir(stackdir+'/'+stack)
+    print options
     if 'project' in options.keys():
         project = options['project']
         _add_project(stackdir+'/'+stack, project)
@@ -158,8 +158,10 @@ def create_stack(options):
         if 'git_url' in options.keys():
             git_url = options['git_url']
         else:
-            git_url = _git_options(homedir, 'base_url')
+            git_url = _git_options(homedir, 'baseurl')
         _git_clone(stackdir+'/'+stack, git_url)
+
+    _populate_settings(stack, stackdir, options)
 
 def delete_stack():
     '''
@@ -191,11 +193,13 @@ def _populate_settings(stack, stackdir, options = {'port_range': '(8000, 8010)'}
     ###  bracketted by percens, '%%...%%'.  The text between the percens 
     ###  is a dictionary keyword that replaces the token with its value.
 
+    port = _free_port(options['port_range'], stackdir)
     options_txt = '''
 ###  Default options for the [stack]_settings.py file for each stack.
 ###  
 
-port_range = '''+"'"+options['port_range']+"'"+'''
+###  port is the IP port that the server binds and listens to
+port = '''+"'"+port+"'"+'''
 
 ###  contains a dictionary of the projects within a stack as the keys,
 ###  and the name of the application settings file as the values
@@ -203,20 +207,21 @@ port_range = '''+"'"+options['port_range']+"'"+'''
 projects = {
 '''
 
-    if 'projects' not in options.keys():
-        if 'project' not in options.keys():
-            options['project'] = stack
-        if 'app' not in options.keys():
-            options['app'] = options['project']
-        options['projects'] = {options['project']: options['app']} 
+    if 'projects' in options.keys():
+        if 'project' in options.keys():
+            if 'app' in options.keys():
+                options['projects'] = {options['project']: options['app']} 
+            else:
+                options['projects'] = {options['project']: options['project']}
+    else : options['projects'] = {}
     for project in options['projects'].keys():
         options_txt = options_txt+"    '"+project+"': '"+options['projects'][project]+"',"
 
     options_txt = options_txt+'''
     }
-    '''
+'''
 
-    _write_file(stackdir+'/'+stack+'_settings.py', options_txt)
+    _write_file(stackdir+'/'+stack+'/settings.py', options_txt)
 
 def _write_file(filename, text):
     '''
@@ -292,8 +297,6 @@ def _add_project(stack_dir, project):
     sys.path.append(stackdir)
     exec('from '+stack+'_settings import *')
 
-    _populate_settings(stack, stackdir, options)
-
 def _add_app(stack_dir, app):
     '''
     Add an app to a project.  
@@ -309,6 +312,93 @@ def _add_app(stack_dir, app):
     execute_from_command_line(cmd)
 
     os.chdir(pwd)
+
+def _git_clone(options, git_url):
+    '''
+    Clone a Git repository into a directory structure based on a Git URL.
+    Accepts the usual Git options, see the git_settings.py file.
+    '''
+
+    import git
+
+    locations = []
+
+    if 'cfgdir' in options.keys():
+        location.append(options['cfgdir']+'/git_settings.py')
+    if 'homedir' in options.keys():
+        location.append(options['homedir']+'/git_settings.py')
+    if 'stackdir' in options.keys():
+        locations.append(options['stackdir']+'/git_settings.py')
+    if 'stack' in options.keys():
+        locations.append(options['stackdir']+'/'+stack+'/git_settings.py')
+    new_options = _get_git_options(locations)
+
+    for option in new_options.keys():
+        git_options[option] = new_options[options]
+    del new_options, locations
+
+    repo = git.Repo.init(stack, bare = True)
+    assert repo.bare == True
+    clone = repo.clone(git_url)
+
+def _get_git_options(locations):
+    '''
+    Returns the git options from the git_settings file for a stack.  Accepts
+    either stack name, or ordered list of potential git_settings.py files.  
+    Each entry in list overwrites previous options, allowing each layer to
+    only change the settings from the previous layer.
+    '''
+
+    options = {}
+
+    for file in locations:
+        if os.isfile(file):
+            exec('from '+file+' import git_options')
+            for option in git_options.keys():
+                options[option] = git_options[option]
+    return options
+
+def _free_port(port_range, stackdir):
+    '''
+    Checks which ports are free, check first the stack, then if the port
+    has a connection on it.  Returns first port from range.  
+    '''
+
+    if type(port_range) == type('text'):
+        exec('port_range = '+port_range)
+    ports = range(port_range[0], port_range[1])
+    pwd = os.getcwd()
+    for stack in _get_stacks(stackdir):
+        os.chdir(stackdir+'/'+stack)
+        sys.path.append(stackdir+'/'+stack)
+        exec('from settings import port')
+        sys.path.remove(stackdir+'/'+stack)
+
+        if type(port) == type('text'):
+            exec('port = '+port)
+        if port in ports:
+            ports.remove(port)
+    os.chdir(pwd)
+
+    for port in ports:
+        if _check_port(port) == False:
+          return str(port)
+
+def _check_port(port):
+    '''
+    Check if the port is in use, by seeing if there is a process, pipe, etc
+    connected to it.  If there is, return True, if not, return False.
+    '''
+
+    import socket
+    testport = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+    try:
+        testport.bind(('localhost', port))
+    except:
+        return True
+    testport.close()
+    return False
 
 helpstring = [
     '''
