@@ -2,6 +2,14 @@
 ###  Options specified as dictionay key+values for the options dictionary,
 ###  and file is imported
 
+###  This file wrappers the base options and settings used by the deploy.py
+###  deploy.py script for a site.  It assumes that each homedir is a separate
+###  code base, with a separate repository, and that separate stackdirs will
+###  have separate deploy_settings.py and git_settings.py files.  Also
+###  assumes that the user is calling the file from either the homedir or
+###  below, or from a common bin area for the user, with the settings files
+###  in a .deploy.py directory in the users home directory.
+
 import os, sys
 
 #  options is a container dictionary.  All setting variables are placed
@@ -35,10 +43,3 @@ options['filename']  = 'db-export.json'
 #  the command line
 options['stack'] = 'test'
 
-#  project is the default project to work upon.  Normally, this is reset
-#  at the command line
-#options['project'] = 'test_project'
-
-#  app is the default app to work upon.  Normally, this is specified at
-#  the command line
-#options['app'] = 'test_app'

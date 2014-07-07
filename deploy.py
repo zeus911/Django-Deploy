@@ -28,7 +28,6 @@ def export_db(options):
 ### These next two lines are as ugly as the sin of politics, but, wow,
 ### they would have made the code that follows so much cleaner
     for item in options.keys():
-        print item, options[item]
         exec(item+' = "'+options[item]+'"')
 
     savedir = options['savedir']
@@ -57,17 +56,14 @@ def export_db(options):
         exec('from  '+stack+'_settings import projects')
         for project in projects.keys():
             project_location = stackdir+'/'+stack+'/'+project
-            os.chdir(project_location)
-            print os.getcwd()
-            _export(filename, format, projects[project]+'.settings')
+            _export(filename, db_format, project_location, projects[project]+'.settings')
 
     else:
         project = options['project']
         project_location = stackdir+'/'+stack+'/'+project
         mod_location = project_location+'/manage.py'
-        os.chdir(project_location)
         mod_settings_obj = _get_module_setting(mod_location)
-        _export(savedir+'/'+filename, db_format, mod_settings_obj)
+        _export(savedir+'/'+filename, db_format, project_location, mod_settings_obj)
 
     
 def import_db():
@@ -129,25 +125,18 @@ def create_stack(options):
     Creates a stack (both the directory structure and config file) with the 
     provided name, and with provided options.  These include:
         port - specify the post to use [optional]
-        project - project to start, if empty, creates project named after the
-            stack
+        project - project to start, if empty, skips
         app - application and setting filename in a project [optional]
-            if empty, uses project name for setting filename
+            if empty, skips
+        git_url - URL of the git respository to clone to populate the project
     Not completed.
     '''
 
-    print options
     stackdir = options['stackdir']
     stack = options['stack']
     _check_dir(stackdir)
-    if 'project' not in options.keys():
-        options['project'] = options['stack']
-    else: project = options['project']
     if 'port_range' not in options.keys():
         options['port_range'] = '(8000, 8009)' 
-    if 'app' not in options.keys():
-        app = options['project']
-    else: app = options['app']
     if stack not in _get_stacks(stackdir):    
         os.mkdir(stackdir+'/'+stack)
         os.mknod(stackdir+'/'+stack+'_settings.py')
@@ -160,7 +149,17 @@ def create_stack(options):
     os.chdir(stackdir+'/'+stack)
     if 'project' in options.keys():
         project = options['project']
-        _add_project(stackdir+'/'+stack, project, app)
+        _add_project(stackdir+'/'+stack, project)
+        if 'app' in options.keys():
+            app = options['app']
+            _add_app(stackdir+'/'+stack+'/'+project, app)
+    elif 'git_url' in options.keys() or 'git' in options.keys():
+        git = True
+        if 'git_url' in options.keys():
+            git_url = options['git_url']
+        else:
+            git_url = _git_options(homedir, 'base_url')
+        _git_clone(stackdir+'/'+stack, git_url)
 
 def delete_stack():
     '''
@@ -263,7 +262,7 @@ def _get_module_settings(mod_location):
                 return line.split()[1][1:-2]
     file.close()
 
-def _export(filename, db_format, mod_settings_obj):
+def _export(filename, db_format, location, mod_settings_obj):
     '''
     Export function, handles the call to the django management core
     '''
@@ -271,12 +270,13 @@ def _export(filename, db_format, mod_settings_obj):
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", mod_settings_obj)
     from django.core.management import execute_from_command_line
 
-    sys.argv = ['manage.py', 'dumpdata', '--format', format]
+    os.chdir(location)
+    sys.path.append(location)
+    sys.argv = ['manage.py', 'dumpdata', '--format', db_format]
     #sys.argv = ['manage.py', 'dumpdata', '--output', filename, '--format', db_format]
-    print os.getcwd()
     execute_from_command_line(sys.argv)
 
-def _add_project(stack_dir, project, app = ''):
+def _add_project(stack_dir, project):
     '''
     Creates the project infrastructure, projects.py files and populates it 
     with the projects within the stack.  If app is specified, also creates it.
@@ -285,7 +285,6 @@ def _add_project(stack_dir, project, app = ''):
     from django.core.management import execute_from_command_line
     execute_from_command_line(['django-admin.py', 'startproject', project])
     
-    print options
     stack = stack_dir.split('/')[-1]
     stackdir = stack_dir[0:-(1+len(stack))]
     project_file = stackdir+'_settings'
@@ -295,16 +294,20 @@ def _add_project(stack_dir, project, app = ''):
 
     _populate_settings(stack, stackdir, options)
 
+def _add_app(stack_dir, app):
+    '''
+    Add an app to a project.  
+    '''
+
     pwd = os.getcwd()
-    os.chdir(project)    
-    if app != '':
-        #  Create an app within the project.  Need to refactor to make
-        #  multiple apps
-        cmd = ['django-admin.py', 'startapp', app]
-        execute_from_command_line(cmd)
-    else:
-        cmd = ['django-admin.py', 'startapp', project]
-        execute_from_command_line(cmd)
+    stack = stack_dir.split('/')[-1]
+    stackdir = stack_dir[0:-(1+len(stack))]
+    os.chdir(stackdir)
+
+    from django.core.management import execute_from_command_line
+    cmd = ['django-admin.py', 'startapp', app]
+    execute_from_command_line(cmd)
+
     os.chdir(pwd)
 
 helpstring = [
@@ -370,5 +373,3 @@ elif sys.argv[1] in localcmds:
 
 #    sys.argv[0]='django-admin.py'
 #    execute_from_command_line(sys.argv)
-
-
