@@ -38,8 +38,12 @@ def export_db(options):
     if 'projects' not in options.keys() and 'project' in options.keys():
         projects = {options['project']: options['project']}
     elif 'projects' not in options.keys() and 'project' not in options.keys():
-        projects = {stack: stack}
-        project = stack
+        projects = _get_stacks(stackdir+'/'+stack)
+        if len(projects) != 0:
+            project = projects[0]
+        else: project = ""
+        #projects = {stack: stack}
+        #project = stack
     else:
         projects = options['projects']
 
@@ -50,13 +54,14 @@ def export_db(options):
     else:
         db_format = options['db_format']
 
+    pwd = os.getcwd()
     if 'project' not in options.keys():
-        os.chdir(stackdir)
-        sys.path.append(stackdir)
-        exec('from  '+stack+'_settings import projects')
+        os.chdir(stackdir+'/'+stack)
+        sys.path.append(stackdir+'/'+stack)
+        from stack_settings import projects
         for project in projects.keys():
             project_location = stackdir+'/'+stack+'/'+project
-            _export(filename, db_format, project_location, projects[project]+'.settings')
+            _export(filename, db_format, project_location, projects[project]+'/stack_settings')
 
     else:
         project = options['project']
@@ -64,7 +69,7 @@ def export_db(options):
         mod_location = project_location+'/manage.py'
         mod_settings_obj = _get_module_setting(mod_location)
         _export(savedir+'/'+filename, db_format, project_location, mod_settings_obj)
-
+    os.chdir(pwd)
     
 def import_db():
     '''
@@ -139,14 +144,13 @@ def create_stack(options):
         options['port_range'] = '(8000, 8009)' 
     if stack not in _get_stacks(stackdir):    
         os.mkdir(stackdir+'/'+stack)
-        os.mknod(stackdir+'/'+stack+'/settings.py')
+        os.mknod(stackdir+'/'+stack+'/stack_settings.py')
 
     ###  Need to put a call to manage.py to install a django project into 
     ###  a stack.  Need to decide how it is going to support multiple
     ###  projects in a stack, and importing from git/GitHub.
 
     os.chdir(stackdir+'/'+stack)
-    print options
     if 'project' in options.keys():
         project = options['project']
         _add_project(stackdir+'/'+stack, project)
@@ -159,7 +163,7 @@ def create_stack(options):
             git_url = options['git_url']
         else:
             git_url = _git_options(homedir, 'baseurl')
-        _git_clone(stackdir+'/'+stack, git_url)
+        _git_clone(options, git_url)
 
     _populate_settings(stack, stackdir, options)
 
@@ -184,44 +188,48 @@ for cmd in dir():
 
 def _populate_settings(stack, stackdir, options = {'port_range': '(8000, 8010)'}):
     '''
-    Add standard options into the [stack]_settings.py file.
+    Add standard options into the [stack]/stack_settings.py file.
     '''
 
     ###  options_txt is a text blob that contains the default options and
-    ###  comments for the [stack]_settings.py file.  Add a line to the file
+    ###  comments for the [stack]/settings.py file.  Add a line to the file
     ###  by adding a line to the text blob.  Options within the file are
     ###  bracketted by percens, '%%...%%'.  The text between the percens 
     ###  is a dictionary keyword that replaces the token with its value.
 
     port = _free_port(options['port_range'], stackdir)
     options_txt = '''
-###  Default options for the [stack]_settings.py file for each stack.
+###  Default options for the [stack]/settings.py file for each stack.
 ###  
 
 ###  port is the IP port that the server binds and listens to
 port = '''+"'"+port+"'"+'''
 
+'''
+
+    if 'add_projects' in options.keys():
+        options_txt = options_txt+'''
 ###  contains a dictionary of the projects within a stack as the keys,
 ###  and the name of the application settings file as the values
 
 projects = {
 '''
 
-    if 'projects' in options.keys():
-        if 'project' in options.keys():
-            if 'app' in options.keys():
-                options['projects'] = {options['project']: options['app']} 
-            else:
-                options['projects'] = {options['project']: options['project']}
-    else : options['projects'] = {}
-    for project in options['projects'].keys():
-        options_txt = options_txt+"    '"+project+"': '"+options['projects'][project]+"',"
+        if 'projects' in options.keys():
+            if 'project' in options.keys():
+                if 'app' in options.keys():
+                    options['projects'] = {options['project']: options['app']} 
+                else:
+                    options['projects'] = {options['project']: options['project']}
+        else : options['projects'] = {}
+        for project in options['projects'].keys():
+            options_txt = options_txt+"    '"+project+"': '"+options['projects'][project]+"',"
 
-    options_txt = options_txt+'''
+        options_txt = options_txt+'''
     }
 '''
 
-    _write_file(stackdir+'/'+stack+'/settings.py', options_txt)
+    _write_file(stackdir+'/'+stack+'/stack_settings.py', options_txt)
 
 def _write_file(filename, text):
     '''
@@ -235,7 +243,8 @@ def _write_file(filename, text):
 
 def _get_stacks(stackdir):
     '''
-    Gets the list of stacks currently configured on the system.
+    Gets the list of stacks currently configured on the system.  If given
+    path of a stack, gets projects within that stack.
     '''
     stacks = []
     for file in os.listdir(stackdir):
@@ -292,10 +301,7 @@ def _add_project(stack_dir, project):
     
     stack = stack_dir.split('/')[-1]
     stackdir = stack_dir[0:-(1+len(stack))]
-    project_file = stackdir+'_settings'
-
-    sys.path.append(stackdir)
-    exec('from '+stack+'_settings import *')
+    project_file = stackdir+'/stack_settings'
 
 def _add_app(stack_dir, app):
     '''
@@ -319,6 +325,7 @@ def _git_clone(options, git_url):
     Accepts the usual Git options, see the git_settings.py file.
     '''
 
+    print options
     import git
 
     locations = []
@@ -371,7 +378,9 @@ def _free_port(port_range, stackdir):
     for stack in _get_stacks(stackdir):
         os.chdir(stackdir+'/'+stack)
         sys.path.append(stackdir+'/'+stack)
-        exec('from settings import port')
+        print stackdir+'/'+stack
+        try: from stack_settings import port
+        except: port = False
         sys.path.remove(stackdir+'/'+stack)
 
         if type(port) == type('text'):
