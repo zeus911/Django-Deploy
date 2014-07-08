@@ -159,11 +159,9 @@ def create_stack(options):
             _add_app(stackdir+'/'+stack+'/'+project, app)
     elif 'git_url' in options.keys() or 'git' in options.keys():
         git = True
-        if 'git_url' in options.keys():
-            git_url = options['git_url']
-        else:
-            git_url = _git_options(homedir, 'baseurl')
-        _git_clone(options, git_url)
+        if 'git_url' not in options.keys():
+            options['git_url'] = _get_git_options(stackdir+'/'+stack)
+        _git_clone(options)
 
     _populate_settings(stack, stackdir, options)
 
@@ -319,7 +317,7 @@ def _add_app(stack_dir, app):
 
     os.chdir(pwd)
 
-def _git_clone(options, git_url):
+def _git_clone(options):
     '''
     Clone a Git repository into a directory structure based on a Git URL.
     Accepts the usual Git options, see the git_settings.py file.
@@ -331,15 +329,16 @@ def _git_clone(options, git_url):
     locations = []
 
     if 'cfgdir' in options.keys():
-        location.append(options['cfgdir']+'/git_settings.py')
+        locations.append(options['cfgdir']+'/git_settings.py')
     if 'homedir' in options.keys():
-        location.append(options['homedir']+'/git_settings.py')
+        locations.append(options['homedir']+'/git_settings.py')
     if 'stackdir' in options.keys():
         locations.append(options['stackdir']+'/git_settings.py')
     if 'stack' in options.keys():
         locations.append(options['stackdir']+'/'+stack+'/git_settings.py')
     new_options = _get_git_options(locations)
 
+    print new_options
     for option in new_options.keys():
         git_options[option] = new_options[options]
     del new_options, locations
@@ -356,6 +355,10 @@ def _get_git_options(locations):
     only change the settings from the previous layer.
     '''
 
+    if type(locations) == type(['list']):
+
+    elif type(locations) == type('text'):
+        locations = _get_locations(locations, 'git_settings.py')
     options = {}
 
     for file in locations:
@@ -392,6 +395,16 @@ def _free_port(port_range, stackdir):
     for port in ports:
         if _check_port(port) == False:
           return str(port)
+
+def _get_locations(start_dir, filename):
+    '''
+    Builds list of locations of files named filename, from start_dir back
+    to root.
+    '''
+
+    locations = []
+
+    
 
 def _check_port(port):
     '''

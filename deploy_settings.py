@@ -43,3 +43,8 @@ options['filename']  = 'db-export.json'
 #  the command line
 options['stack'] = 'test'
 
+#  cfgdir is a central directory for settings and configuration files
+#  only set it if you create one
+if os.path.isdir('/home/dracus/.django-deploy'):
+    options['cfgdir'] = '/home/dracus/.django-deploy'
+
