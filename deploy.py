@@ -301,14 +301,13 @@ def _add_project(stack_dir, project):
     stackdir = stack_dir[0:-(1+len(stack))]
     project_file = stackdir+'/stack_settings'
 
-def _add_app(stack_dir, app):
+def _add_app(stackdir, app):
     '''
     Add an app to a project.  
     '''
 
     pwd = os.getcwd()
-    stack = stack_dir.split('/')[-1]
-    stackdir = stack_dir[0:-(1+len(stack))]
+    stack = stackdir.split('/')[-1]
     os.chdir(stackdir)
 
     from django.core.management import execute_from_command_line
@@ -323,7 +322,6 @@ def _git_clone(options):
     Accepts the usual Git options, see the git_settings.py file.
     '''
 
-    print options
     import git
 
     locations = []
@@ -335,17 +333,17 @@ def _git_clone(options):
     if 'stackdir' in options.keys():
         locations.append(options['stackdir']+'/git_settings.py')
     if 'stack' in options.keys():
-        locations.append(options['stackdir']+'/'+stack+'/git_settings.py')
+        locations.append(options['stackdir']+'/'+options['stack']+'/git_settings.py')
     new_options = _get_git_options(locations)
 
-    print new_options
     for option in new_options.keys():
         git_options[option] = new_options[options]
     del new_options, locations
 
-    repo = git.Repo.init(stack, bare = True)
-    assert repo.bare == True
-    clone = repo.clone(git_url)
+    git_url = options['git_url']
+    stack_location = options['stackdir']+'/'+options['stack']+'/'+git_url.split('/')[-1]
+    repo = git.Repo.clone_from(git_url, stack_location)
+
 
 def _get_git_options(locations):
     '''
@@ -355,18 +353,18 @@ def _get_git_options(locations):
     only change the settings from the previous layer.
     '''
 
-    if type(locations) == type(['list']):
-
-    elif type(locations) == type('text'):
+    if type(locations) == type('text'):
         locations = _get_locations(locations, 'git_settings.py')
-    options = {}
+    new_options = {}
 
-    for file in locations:
-        if os.isfile(file):
-            exec('from '+file+' import git_options')
+    for location in locations:
+        git_file = location+'/git_settings.py'
+        if os.path.isfile(git_file):
+            exec('from '+git_file+' import git_options')
             for option in git_options.keys():
-                options[option] = git_options[option]
-    return options
+                new_options[option] = git_options[option]
+            del git_options
+    return new_options
 
 def _free_port(port_range, stackdir):
     '''
@@ -381,7 +379,6 @@ def _free_port(port_range, stackdir):
     for stack in _get_stacks(stackdir):
         os.chdir(stackdir+'/'+stack)
         sys.path.append(stackdir+'/'+stack)
-        print stackdir+'/'+stack
         try: from stack_settings import port
         except: port = False
         sys.path.remove(stackdir+'/'+stack)
@@ -404,7 +401,16 @@ def _get_locations(start_dir, filename):
 
     locations = []
 
-    
+    while start_dir != '/':
+        locations.append(start_dir)
+        start_dir = os.path.split(start_dir)[0]
+
+    for location in locations:
+        if not os.isfile(location+'/'+filename):
+            locations.remove(location)
+
+    locations.reverse()
+    return locations
 
 def _check_port(port):
     '''
