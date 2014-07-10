@@ -55,19 +55,19 @@ def export_db(options):
         db_format = options['db_format']
 
     pwd = os.getcwd()
+    os.chdir(stackdir+'/'+stack)
+    sys.path.append(stackdir+'/'+stack)
     if 'project' not in options.keys():
-        os.chdir(stackdir+'/'+stack)
-        sys.path.append(stackdir+'/'+stack)
-        from stack_settings import projects
-        for project in projects.keys():
-            project_location = stackdir+'/'+stack+'/'+project
-            _export(filename, db_format, project_location, projects[project]+'/stack_settings')
-
+        if 'projects' not in options.keys():
+            projects = _get_stacks(stackdir+'/'+stack)
+        else: projects = options['projects']
     else:
-        project = options['project']
+        projects = [options['project']]
+
+    for project in projects:
         project_location = stackdir+'/'+stack+'/'+project
         mod_location = project_location+'/manage.py'
-        mod_settings_obj = _get_module_setting(mod_location)
+        mod_settings_obj = _get_module_settings(mod_location)
         _export(savedir+'/'+filename, db_format, project_location, mod_settings_obj)
     os.chdir(pwd)
     
@@ -286,7 +286,14 @@ def _export(filename, db_format, location, mod_settings_obj):
     sys.path.append(location)
     sys.argv = ['manage.py', 'dumpdata', '--format', db_format]
     #sys.argv = ['manage.py', 'dumpdata', '--output', filename, '--format', db_format]
-    execute_from_command_line(sys.argv)
+    
+    if filename != '':
+        sys.stdout = open(filename, 'w')
+        execute_from_command_line(sys.argv)
+        sys.stdout.close()
+
+    else:
+        execute_from_command_line(sys.argv)
 
 def _add_project(stack_dir, project):
     '''
