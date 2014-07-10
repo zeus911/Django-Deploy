@@ -2,6 +2,11 @@
 
 import os, sys
 
+cfgdir = os.environ['HOME']+'/.django-deploy'
+if os.path.isdir(cfgdir) and os.path.isfile(cfgdir+'/deploy_settings.py'):
+    sys.path.append(cfgdir)
+else:
+    del cfgdir
 ###  import of config stuff
 from deploy_settings import *
 
