@@ -144,6 +144,7 @@ def create_stack(options):
 
     stackdir = options['stackdir']
     stack = options['stack']
+    _check_dir(options['homedir'])
     _check_dir(stackdir)
     if 'port_range' not in options.keys():
         options['port_range'] = '(8000, 8009)' 

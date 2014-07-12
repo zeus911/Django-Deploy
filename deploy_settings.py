@@ -18,7 +18,7 @@ options = {}
 
 #  homedir is the home directory everything else is relative to
 #options['homedir'] = os.getcwd()
-options['homedir'] = '/home/dracus/Projects'
+options['homedir'] = '/home/gbeahost/deploy_area'
 
 #  savedir is the directory exported files are saved to, or imported
 #  files are imported from.  Usually, a temporary file area.
@@ -45,6 +45,6 @@ options['stack'] = 'test'
 
 #  cfgdir is a central directory for settings and configuration files
 #  only set it if you create one
-if os.path.isdir('/home/dracus/.django-deploy'):
-    options['cfgdir'] = '/home/dracus/.django-deploy'
+if os.path.isdir(os.environ['HOME']+'/.django-deploy'):
+    options['cfgdir'] = os.environ['HOME']+'/.django-deploy'
 
