@@ -180,6 +180,48 @@ def delete_stack():
 
     pass
 
+    ###  First, test that the named stack is not running
+        ###  If it is, double check with user and stop it
+    ###  Get a filename to export db to
+    ###  Export DB to filename
+    ###  Double check with user
+    ###  Delete stack file structure
+
+def run_server(options):
+    '''
+    Tests if the named stack is running, and, if not, run it on either the
+    specified port or the port configured in the stack_settings.py file.
+    '''
+
+    stackdir = options['stackdir']
+    stack = options['stack']
+
+    if 'port' not in options.keys():
+        pwd = os.getcwd()
+        os.chdir(stackdir+'/'+stack)
+        sys.path.append(stackdir+'/'+stack)
+        try:
+            from stack_settings import stack_options
+            port = stack_options['port']
+        except:
+            port = False
+        sys.path.append(stackdir+'/'+stack)
+        os.chdir(pwd)
+    else:
+        port = options['port']
+
+    if port == False:
+        sys.exit('No port for '+stack+' defined.  Check configuration.')
+    if not _check_port(port):
+        print 'Service running on port '+port+'.  Check configuration or'
+        print 'for conflicting service.'
+    else:
+        cmd = ['manage.py', 'runserver', port]
+        project = _get_project(stackdir+'/'+stack)
+        mod_location = stackdir+'/'+stack+'/'+project
+        mod_settings_obj = _get_module_settings(mod_location+'/manage.py')
+        _execute_cmd(cmd, mod_settings_obj, mod_location)
+
 ######  End functions called from command line section.
 
 localcmds = []
@@ -206,31 +248,14 @@ def _populate_settings(stack, stackdir, options = {'port_range': '(8000, 8010)'}
 ###  Default options for the [stack]/settings.py file for each stack.
 ###  
 
+###  stack_options is the dictionary structure that the stack options
+###  are stored into.
+
+stack_options = {}
+
 ###  port is the IP port that the server binds and listens to
-port = '''+"'"+port+"'"+'''
+stack_options['port'] = '''+"'"+port+"'"+'''
 
-'''
-
-    if 'add_projects' in options.keys():
-        options_txt = options_txt+'''
-###  contains a dictionary of the projects within a stack as the keys,
-###  and the name of the application settings file as the values
-
-projects = {
-'''
-
-        if 'projects' in options.keys():
-            if 'project' in options.keys():
-                if 'app' in options.keys():
-                    options['projects'] = {options['project']: options['app']} 
-                else:
-                    options['projects'] = {options['project']: options['project']}
-        else : options['projects'] = {}
-        for project in options['projects'].keys():
-            options_txt = options_txt+"    '"+project+"': '"+options['projects'][project]+"',"
-
-        options_txt = options_txt+'''
-    }
 '''
 
     _write_file(stackdir+'/'+stack+'/stack_settings.py', options_txt)
@@ -252,9 +277,28 @@ def _get_stacks(stackdir):
     '''
     stacks = []
     for file in os.listdir(stackdir):
-        if os.path.isdir(stackdir+'/'+file):
+        if os.path.isdir(stackdir+'/'+file) and file[0] not in ('.', '_'):
             stacks.append(file)
     return stacks
+
+def _get_project(stackdir):
+    '''
+    Finds the principle project directory within the stack directory.  Calls
+    _get_stacks to find potential project directories.
+    '''
+
+    stacks = _get_stacks(stackdir)
+    projects = []
+    for stack in stacks:
+        if os.path.isfile(stackdir+'/'+stack+'/manage.py'):
+            projects.append(stack)
+    ###  For the time being, all stacks will have one project, so we only
+    ###  need to return the first, and only, project
+    #if len(projects) == 1:
+    #    return projects[0]
+    #else:
+    #    for project in projects:
+    return projects[0]
 
 def _check_dir(dir):
     '''
@@ -300,6 +344,33 @@ def _export(filename, db_format, location, mod_settings_obj):
 
     else:
         execute_from_command_line(sys.argv)
+
+def _execute_cmd(cmd, mod_settings_obj = '', exec_dir = ''):
+    '''
+    Receives cmd, containing command to execute, and its options as a list,
+    and, optionally, the settings file for that stack, and the directory to
+    execute the command from.  Imports the Django execute from command line
+    functions and executes cmd in it.
+    '''
+
+    if cmd[0] not in ('django_admin.py', 'manage.py'):
+        if mod_settings_obj == '':
+            sys.argv = ['django_admin.py'] + cmd
+        else:
+            sys.argv = ['manage.py'] + cmd
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", mod_settings_obj)
+    elif cmd[0] == 'manage.py':
+        sys.argv = cmd
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", mod_settings_obj)
+
+    pwd = os.getcwd()
+    if os.path.isdir(exec_dir):
+        os.chdir(exec_dir)
+    from django.core.management import execute_from_command_line
+    sys.path.append(exec_dir)
+    execute_from_command_line(sys.argv)
+    sys.path.remove(exec_dir)
+    os.chdir(pwd)
 
 def _add_project(stack_dir, project):
     '''
@@ -392,7 +463,9 @@ def _free_port(port_range, stackdir):
     for stack in _get_stacks(stackdir):
         os.chdir(stackdir+'/'+stack)
         sys.path.append(stackdir+'/'+stack)
-        try: from stack_settings import port
+        try:
+            from stack_settings import stack_options
+            port = stack_options['port']
         except: port = False
         sys.path.remove(stackdir+'/'+stack)
 
