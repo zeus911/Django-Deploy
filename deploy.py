@@ -220,7 +220,11 @@ def run_server(options):
         project = _get_project(stackdir+'/'+stack)
         mod_location = stackdir+'/'+stack+'/'+project
         mod_settings_obj = _get_module_settings(mod_location+'/manage.py')
+        pidfile = open(stackdir+'/'+stack+'_pid', 'w')
+        pidfile.write(str(os.getpid()))
+        pidfile.close()
         _execute_cmd(cmd, mod_settings_obj, mod_location)
+        
 
 ######  End functions called from command line section.
 
@@ -428,6 +432,20 @@ def _git_clone(options):
     stack_location = options['stackdir']+'/'+options['stack']+'/'+git_url.split('/')[-1]
     repo = git.Repo.clone_from(git_url, stack_location)
 
+def _git_set_branch(options):
+    '''
+    Set the branch for a local Git repository.  Alters the file base to reflect
+    the state of the branch.
+    '''
+
+    import git
+    branch = options['git_branch']
+    stack = options['stack']
+    stackdir = options['stackdir']
+    git_url = options['git_url']
+    repo = git.Repo
+
+    ###  So not completed
 
 def _get_git_options(locations):
     '''
