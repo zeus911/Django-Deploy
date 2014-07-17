@@ -143,6 +143,7 @@ def create_stack(options):
     '''
 
     stackdir = options['stackdir']
+    cfgdir = options['cfgdir']
     stack = options['stack']
     _check_dir(options['homedir'])
     _check_dir(stackdir)
@@ -150,7 +151,8 @@ def create_stack(options):
         options['port_range'] = '(8000, 8009)' 
     if stack not in _get_stacks(stackdir):    
         os.mkdir(stackdir+'/'+stack)
-        os.mknod(stackdir+'/'+stack+'/stack_settings.py')
+        os.mkdir(cfgdir+'/'+stack)
+        os.mknod(cfgdir+'/'+stack+'/stack_settings.py')
 
     ###  Need to put a call to manage.py to install a django project into 
     ###  a stack.  Need to decide how it is going to support multiple
@@ -169,7 +171,7 @@ def create_stack(options):
             options['git_url'] = _get_git_options(stackdir+'/'+stack)
         _git_clone(options)
 
-    _populate_settings(stack, stackdir, options)
+    _populate_settings(stack, stackdir, cfgdir, options)
 
 def delete_stack():
     '''
@@ -198,14 +200,14 @@ def run_server(options):
 
     if 'port' not in options.keys():
         pwd = os.getcwd()
-        os.chdir(stackdir+'/'+stack)
-        sys.path.append(stackdir+'/'+stack)
+        os.chdir(cfgdir+'/'+stack)
+        sys.path.append(cfgdir+'/'+stack)
         try:
             from stack_settings import stack_options
             port = stack_options['port']
         except:
             port = False
-        sys.path.append(stackdir+'/'+stack)
+        sys.path.remove(cfgdir+'/'+stack)
         os.chdir(pwd)
     else:
         port = options['port']
@@ -220,11 +222,24 @@ def run_server(options):
         project = _get_project(stackdir+'/'+stack)
         mod_location = stackdir+'/'+stack+'/'+project
         mod_settings_obj = _get_module_settings(mod_location+'/manage.py')
-        pidfile = open(stackdir+'/'+stack+'_pid', 'w')
+        pidfile = open(cfgdir+'/'+stack+'_pid', 'w')
         pidfile.write(str(os.getpid()))
         pidfile.close()
         _execute_cmd(cmd, mod_settings_obj, mod_location)
         
+def stop_server(options):
+    '''
+    Find the server handler for the named stack, and stops it.
+    '''
+
+    stackdir = options['stackdir']
+    cfgdir = options['cfgdir']
+    stack = options['stack']
+    pidfile = open(cfgdir+'/'+stack+'_pid', 'r')
+    pid = pidfile.read()
+    pidfile.close()
+
+    ###  Finish this
 
 ######  End functions called from command line section.
 
@@ -236,7 +251,7 @@ for cmd in dir():
 ######  Place function definitions that CAN NOT be used as commands from the
 ######  command line BELOW this line.
 
-def _populate_settings(stack, stackdir, options = {'port_range': '(8000, 8010)'}):
+def _populate_settings(stack, stackdir, cfgdir, options = {'port_range': '(8000, 8010)'}):
     '''
     Add standard options into the [stack]/stack_settings.py file.
     '''
@@ -247,7 +262,7 @@ def _populate_settings(stack, stackdir, options = {'port_range': '(8000, 8010)'}
     ###  bracketted by percens, '%%...%%'.  The text between the percens 
     ###  is a dictionary keyword that replaces the token with its value.
 
-    port = _free_port(options['port_range'], stackdir)
+    port = _free_port(options['port_range'], stackdir, cfgdir)
     options_txt = '''
 ###  Default options for the [stack]/settings.py file for each stack.
 ###  
@@ -262,7 +277,7 @@ stack_options['port'] = '''+"'"+port+"'"+'''
 
 '''
 
-    _write_file(stackdir+'/'+stack+'/stack_settings.py', options_txt)
+    _write_file(cfgdir+'/'+stack+'/stack_settings.py', options_txt)
 
 def _write_file(filename, text):
     '''
@@ -385,9 +400,9 @@ def _add_project(stack_dir, project):
     from django.core.management import execute_from_command_line
     execute_from_command_line(['django-admin.py', 'startproject', project])
     
-    stack = stack_dir.split('/')[-1]
-    stackdir = stack_dir[0:-(1+len(stack))]
-    project_file = stackdir+'/stack_settings'
+    #stack = stack_dir.split('/')[-1]
+    #stackdir = stack_dir[0:-(1+len(stack))]
+    #project_file = stackdir+'/stack_settings'
 
 def _add_app(stackdir, app):
     '''
@@ -411,7 +426,6 @@ def _git_clone(options):
     '''
 
     import git
-
     locations = []
 
     if 'cfgdir' in options.keys():
@@ -429,7 +443,7 @@ def _git_clone(options):
     del new_options, locations
 
     git_url = options['git_url']
-    stack_location = options['stackdir']+'/'+options['stack']+'/'+git_url.split('/')[-1]
+    stack_location = options['stackdir']+'/'+options['stack']
     repo = git.Repo.clone_from(git_url, stack_location)
 
 def _git_set_branch(options):
@@ -468,7 +482,7 @@ def _get_git_options(locations):
             del git_options
     return new_options
 
-def _free_port(port_range, stackdir):
+def _free_port(port_range, stackdir, cfgdir):
     '''
     Checks which ports are free, check first the stack, then if the port
     has a connection on it.  Returns first port from range.  
@@ -479,13 +493,13 @@ def _free_port(port_range, stackdir):
     ports = range(port_range[0], port_range[1])
     pwd = os.getcwd()
     for stack in _get_stacks(stackdir):
-        os.chdir(stackdir+'/'+stack)
-        sys.path.append(stackdir+'/'+stack)
+        os.chdir(cfgdir+'/'+stack)
+        sys.path.append(cfgdir+'/'+stack)
         try:
             from stack_settings import stack_options
             port = stack_options['port']
         except: port = False
-        sys.path.remove(stackdir+'/'+stack)
+        sys.path.remove(cfgdir+'/'+stack)
 
         if type(port) == type('text'):
             exec('port = '+port)
@@ -567,6 +581,10 @@ helpstring = [
     ''',
 
     ]
+
+cfgdir = options['cfgdir']
+if not os.path.isdir(cfgdir):
+    os.mkdir(cfgdir)
 
 if len(sys.argv) == 1:
     print helpstring[0]
