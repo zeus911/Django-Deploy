@@ -151,8 +151,8 @@ def create_stack(options):
         options['port_range'] = '(8000, 8009)' 
     if stack not in _get_stacks(stackdir):    
         os.mkdir(stackdir+'/'+stack)
-        os.mkdir(cfgdir+'/'+stack)
-        os.mknod(cfgdir+'/'+stack+'/stack_settings.py')
+        if not os.path.isdir(cfgdir+'/'+stack):
+            os.mkdir(cfgdir+'/'+stack)
 
     ###  Need to put a call to manage.py to install a django project into 
     ###  a stack.  Need to decide how it is going to support multiple
@@ -491,25 +491,38 @@ def _free_port(port_range, stackdir, cfgdir):
     if type(port_range) == type('text'):
         exec('port_range = '+port_range)
     ports = range(port_range[0], port_range[1])
-    pwd = os.getcwd()
     for stack in _get_stacks(stackdir):
-        os.chdir(cfgdir+'/'+stack)
-        sys.path.append(cfgdir+'/'+stack)
-        try:
-            from stack_settings import stack_options
+        if os.path.isfile(cfgdir+'/'+stack+'/stack_settings.py'):
+            stack_options = _options_import(cfgdir+'/'+stack+'/stack_settings.py', 'stack_options')
             port = stack_options['port']
-        except: port = False
-        sys.path.remove(cfgdir+'/'+stack)
+        else: port = False
 
         if type(port) == type('text'):
             exec('port = '+port)
         if port in ports:
             ports.remove(port)
-    os.chdir(pwd)
 
     for port in ports:
         if _check_port(port) == False:
           return str(port)
+
+def _options_import(import_file, return_obj = ''):
+    '''
+    Loads options from a python file, and either return all of the objects from it, or just the named
+    objects.  return_obj can to an object name, a list or a tuple of object names, in text.
+    Such as:  'port', ['port', 'url', 'service'], or ('port', 'url', 'service').
+    '''
+
+    import_text = open(import_file, 'r')
+    for line in import_text.readlines():
+        exec(line)
+
+    if return_obj != '' or return_obj != '*':
+        exec('return_obj = '+return_obj)
+        return return_obj
+    else:
+        pass
+        #  Not certain how to deal with this case yet
 
 def _get_locations(start_dir, filename):
     '''

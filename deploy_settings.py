@@ -48,4 +48,4 @@ options['stack'] = 'test'
 if os.path.isdir(os.environ['HOME']+'/.django-deploy'):
     options['cfgdir'] = os.environ['HOME']+'/.django-deploy'
 else:
-    options['cfgdir'] = os.getcwd()+'/config'
+    options['cfgdir'] = options['stackdir']
