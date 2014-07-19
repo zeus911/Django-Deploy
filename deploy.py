@@ -444,9 +444,12 @@ def _git_clone(options):
 
     git_url = options['git_url']
     stack_location = options['stackdir']+'/'+options['stack']
-    if 'git_branch' in options.keys(): git_branch = options['git_branch']
-    else:  git_branch = ''
-    repo = git.Repo.clone_from(git_url, stack_location, branch = git_branch)
+    if 'git_branch' in options.keys(): 
+        git_branch = options['git_branch']
+        repo = git.Repo.clone_from(git_url, stack_location, branch = git_branch)
+    else: 
+        git_branch = '' 
+        repo = git.Repo.clone_from(git_url, stack_location)
 
 def _git_set_branch(options):
     '''
