@@ -73,6 +73,9 @@ def export_db(options):
         project_location = stackdir+'/'+stack+'/'+project
         mod_location = project_location+'/manage.py'
         mod_settings_obj = _get_module_settings(mod_location)
+        if filename[:-(len(db_format))] != db_format: filename+'.'+db_format
+        ###  *SIGH* just noticed that if there are more then one projects, this will
+        ###  overwrite the previous exports.  So much for useful.
         _export(savedir+'/'+filename, db_format, project_location, mod_settings_obj)
     os.chdir(pwd)
     
