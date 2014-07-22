@@ -76,19 +76,46 @@ def export_db(options):
         _export(savedir+'/'+filename, db_format, project_location, mod_settings_obj)
     os.chdir(pwd)
     
-def import_db():
+def import_db(options):
     '''
     Imports the database data contained in filename into the database.
-    Accepts up to four arguments:
-        stack - which stack you want to export from
-        filename - filename the exported DB is saved to
-        homedir - directory where export file is saved to
-        db_format - format of saved file, either json or xml
-            (yaml is available if installed in the site python)
     Not Completed.
     '''
 
-    pass
+    savedir = options['savedir']
+    stack = options['stack']
+    stackdir = options['stackdir']
+    filename = options['filename']
+
+    if 'projects' not in options.keys() and 'project' in options.keys():
+        projects = {options['project']: options['project']}
+    elif 'projects' not in options.keys() and 'project' not in options.keys():
+        projects = _get_stacks(stackdir+'/'+stack)
+        if len(projects) != 0:
+            project = projects[0]
+        else: project = ""
+    else:
+        projects = options['projects']
+
+    _check_dir(savedir)
+
+    pwd = os.getcwd()
+    os.chdir(stackdir+'/'+stack)
+    sys.path.append(stackdir+'/'+stack)
+    if 'project' not in options.keys():
+        if 'projects' not in options.keys():
+            projects = _get_stacks(stackdir+'/'+stack)
+        else: projects = options['projects']
+    else:
+        projects = [options['project']]
+
+    for project in projects:
+        project_location = stackdir+'/'+stack+'/'+project
+        mod_location = project_location+'/manage.py'
+        mod_settings_obj = _get_module_settings(mod_location)
+        cmd = ['loaddata', savedir+'/'+filename]
+        _execute_cmd(cmd, mod_settings_obj, project_location)
+    os.chdir(pwd)
 
 def clear_db():
     '''

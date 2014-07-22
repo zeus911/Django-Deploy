@@ -11,12 +11,12 @@ Requirements
 *Django 1.6
 *GitPython 0.3
 
-GitPython needs to be installed with either:
+Either:
 *ez_setup 0.9
 *setuptools 5.4.1
 
-or by using::
-*pip 1.4.1
+or:
+*pip 1.0.2
 
 All version numbers are approximate
 
@@ -26,7 +26,9 @@ with the following command:
 
     wget https://bootstrap.pypa.io/ez_setup.py -O - | python
 
-or by using:
+You may need to sudo python to get that to work.
+
+Alternatively, you can install GitPython with the following command:
 
     pip install gitpython
 
