@@ -256,7 +256,20 @@ def run_server(options):
         pidfile.write(str(os.getpid()))
         pidfile.close()
         _execute_cmd(cmd, mod_settings_obj, mod_location)
-        
+
+def sync_db(options):
+    '''
+    Syncs the database to the models in the named stack.
+    '''
+
+    stackdir = options['stackdir']
+    stack = options['stack']
+    project = _get_project(stackdir+'/'+stack)
+    exec_dir = stackdir+'/'+stack+'/'+project
+    mod_settings_obj = _get_module_settings(exec_dir+'/manage.py')
+    cmd=['syncdb']
+    _execute_cmd(cmd, mod_settings_obj, exec_dir)
+
 def stop_server(options):
     '''
     Find the server handler for the named stack, and stops it.
