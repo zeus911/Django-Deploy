@@ -82,7 +82,6 @@ def export_db(options):
 def import_db(options):
     '''
     Imports the database data contained in filename into the database.
-    Not Completed.
     '''
 
     savedir = options['savedir']
@@ -203,21 +202,34 @@ def create_stack(options):
 
     _populate_settings(stack, stackdir, cfgdir, options)
 
-def delete_stack():
+def delete_stack(options):
     '''
     Deletes the named stack, both the directory structure and the config file.  
     Will halt the app if it is currently running.
     Not completed.
     '''
 
-    pass
+    stackdir = options['stackdir']
+    stack = options['stack']
+    cfgdir = options['cfgdir']
+    if 'port' in options.keys():
+        port = options['port']
+    else:
+        port = _options_import(cfgdir+'/'+stack+'/stack_settings.py', "stack_options['port']")
+        options['port'] = port
 
-    ###  First, test that the named stack is not running
-        ###  If it is, double check with user and stop it
-    ###  Get a filename to export db to
-    ###  Export DB to filename
-    ###  Double check with user
+    pid = _running_server(stack, cfgdir, port)
+    if _check_port(port) and pid:  ###  Begin Here
+        _stop_server(pid)
+
+    if 'filename' in options.keys(): export_db(options)
+ 
     ###  Delete stack file structure
+
+    import shutil
+    shutil.rmtree(stackdir+'/'+stack)
+    if os.path.isdir(cfgdir+'/'+stack):
+        shutil.rmtree(cfgdir+'/'+stack)
 
 def run_server(options):
     '''
@@ -278,10 +290,14 @@ def stop_server(options):
     stackdir = options['stackdir']
     cfgdir = options['cfgdir']
     stack = options['stack']
-    pidfile = open(cfgdir+'/'+stack+'_pid', 'r')
-    pid = pidfile.read()
-    pidfile.close()
+    if 'pid' in options.keys():
+        pid = options['pid']
+    else:
+        pidfile = open(cfgdir+'/'+stack+'_pid', 'r')
+        pid = pidfile.read()
+        pidfile.close()
 
+    
     ###  Finish this
 
 ######  End functions called from command line section.
@@ -370,6 +386,34 @@ def _check_dir(dir):
     if not os.path.isdir(dir) and not os.path.isfile(dir):
         os.mkdir(dir)
         os.chmod(dir, 0755)
+
+def _running_server(stack, cfgdir, port):
+    '''
+    Check that a server is running for the specified stack.
+    '''
+
+    if os.path.isfile(cfgdir+'/'+stack+'_pid'):
+        pid_file = open(cfgdir+'/'+stack+'_pid', 'r')
+        pid = pid_file.read()
+        pid_file.close()
+        import psutil
+        cmdline = psutil.Process(int(pid)).cmdline()
+        if 'runserver' in cmdline and port in cmdline:
+            return pid
+        else: return False
+    else: return False
+
+def _stop_server(pid):
+    '''
+    Function to actually stop the server, based on Process ID (pid).
+    '''
+
+    import psutil
+    server = psutil.Process(pid)
+    server.terminate()
+    gone, alive = psutil.wait_procs([server], timeout = 3)
+    while server in alive:
+        server.kill()
 
 def _get_module_settings(mod_location):
     '''

@@ -43,6 +43,14 @@ options['filename']  = 'db-export.json'
 #  the command line
 options['stack'] = 'test'
 
+#  connector is the type of connection used to connect the Django server
+#  to the outside world.  Can be 'wsgi', 'port', or 'both'.  The 'port'
+#  and 'both' options set the port option on the server, and set the 
+#  server running as a background process.  The 'wsgi' and 'both' options
+#  create a set of wsgi descriptors in a file to be loaded by Apache or
+#  some other web server.
+options['connector'] = 'wsgi'
+
 #  cfgdir is a central directory for settings and configuration files
 #  only set it if you create one
 if os.path.isdir(os.environ['HOME']+'/.django-deploy'):
