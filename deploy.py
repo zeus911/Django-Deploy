@@ -219,6 +219,7 @@ def delete_stack(options):
         options['port'] = port
 
     pid = _running_server(stack, cfgdir, port)
+    print pid
     if _check_port(port) and pid:  ###  Begin Here
         _stop_server(pid)
 
