@@ -280,7 +280,7 @@ def sync_db(options):
     project = _get_project(stackdir+'/'+stack)
     exec_dir = stackdir+'/'+stack+'/'+project
     mod_settings_obj = _get_module_settings(exec_dir+'/manage.py')
-    cmd=['syncdb']
+    cmd=['syncdb', '--noinput']  #  alter this is accept noinput as a cmdline option
     _execute_cmd(cmd, mod_settings_obj, exec_dir)
 
 def stop_server(options):
