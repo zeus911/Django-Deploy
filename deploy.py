@@ -298,6 +298,7 @@ def stop_server(options):
         pid = pidfile.read()
         pidfile.close()
 
+    _stop_server(pid)
     
     ###  Finish this
 
@@ -399,8 +400,12 @@ def _running_server(stack, cfgdir, port):
         pid_file.close()
         import psutil
         cmdline = psutil.Process(int(pid)).cmdline()
-        if 'runserver' in cmdline and port in cmdline:
-            return pid
+        print cmdline
+        if 'run_server' in cmdline and stack in cmdline:
+            for proc in psutil.Process(int(pid)).get_children():
+                for conn in proc.get_connections('tcp'):
+                    if conn.laddr[1] == int(port):
+                        return pid
         else: return False
     else: return False
 
@@ -409,6 +414,8 @@ def _stop_server(pid):
     Function to actually stop the server, based on Process ID (pid).
     '''
 
+    if type(pid) == type('text'):
+        pid = int(pid)
     import psutil
     server = psutil.Process(pid)
     server.terminate()
