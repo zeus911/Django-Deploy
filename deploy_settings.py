@@ -90,8 +90,7 @@ WSGIProcessGroup gbetest
 WSGIPythonPath /home/gbeadmin/webapps/gbetest/expo:/home/gbeadmin/webapps/gbetest/lib/python2.7
 WSGIDaemonProcess gbetest \
     processes=2 threads=12 \
-    python-path=/home/gbeadmin/webapps/gbetest:/home/gbeadmin/webapps/gbetest/expo:/home/gbeadmin/we
-bapps/gbetest/lib/python2.7
+    python-path=/home/gbeadmin/webapps/gbetest:/home/gbeadmin/webapps/gbetest/expo:/home/gbeadmin/webapps/gbetest/lib/python2.7
 WSGIScriptAlias / /home/gbeadmin/webapps/gbetest/expo/expo/wsgi.py process-group=gbetest
 WSGIScriptReloading On
 
