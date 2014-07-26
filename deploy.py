@@ -353,7 +353,7 @@ def _populate_wsgi(stackdir, wsgi_options, wsgipath, apachedir):
         wsgi_text = wsgi_text+'    python-path='+stackpath+':'+stackpath
         wsgi_text = wsgi_text+'/'+projects[0]+':'+wsgipath+'\n'
         wsgi_text = wsgi_text+'WSGIScriptAlias /deploy_stack/'+stack+' '
-        wsgi_test = wsgi_text+wsgipy+' process-group='+stack+'\n'
+        wsgi_text = wsgi_text+wsgipy+' process-group='+stack+'\n'
         wsgi_text = wsgi_text+'WSGIScriptReloading On\n\n'
 
     wsgi_text = wsgi_text+'\n'
