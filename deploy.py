@@ -32,8 +32,8 @@ def export_db(options):
     
 ### These next two lines are as ugly as the sin of politics, but, wow,
 ### they would have made the code that follows so much cleaner
-    for item in options.keys():
-        exec(item+' = "'+options[item]+'"')
+   # for item in options.keys():
+   #     exec(item+' = "'+options[item]+'"')
 
     savedir = options['savedir']
     stack = options['stack']
@@ -123,6 +123,7 @@ def clear_db():
     '''
     Deletes the contents for a database of a stack.  Used to clear a database
     in preperation of importing new schema and data as part of a deploy process.
+    Not completed.
     '''
     
     pass
@@ -148,12 +149,7 @@ def push_db():
 def pull_site():
     '''
     Pulls the site (project and app) code from our GitHub repository.  Requires 
-    the GitHub repsoitory be describes in a conf file.  Accepts up to three 
-    arugements:
-        branch - the name of the branch to pull
-        version - which version of the site code to pull
-        stack - load the code into which stack, such as dev, test, stage, prod
-            creates stack if it does not exist        
+    the GitHub repsoitory be describes in a conf file.
     Not completed.
     '''
 
@@ -162,13 +158,7 @@ def pull_site():
 def create_stack(options):
     '''
     Creates a stack (both the directory structure and config file) with the 
-    provided name, and with provided options.  These include:
-        port - specify the post to use [optional]
-        project - project to start, if empty, skips
-        app - application and setting filename in a project [optional]
-            if empty, skips
-        git_url - URL of the git respository to clone to populate the project
-    Not completed.
+    provided name, and with provided options.
     '''
 
     stackdir = options['stackdir']
@@ -200,7 +190,13 @@ def create_stack(options):
             options['git_url'] = _get_git_options(stackdir+'/'+stack)
         _git_clone(options)
 
-    _populate_settings(stack, stackdir, cfgdir, options)
+    if options['connector'] in ('port', 'both'):
+        _populate_settings(stack, stackdir, cfgdir, options)
+    if options['connector'] in ('wsgi', 'both'):
+        wsgi_options = options['wsgi_options']
+        wsgi_path = options['wsgi_path']
+        apache_dir = options['apache_dir']
+        _populate_wsgi(stackdir, wsgi_options, wsgi_path, apache_dir)
 
 def delete_stack(options):
     '''
@@ -212,6 +208,10 @@ def delete_stack(options):
     stackdir = options['stackdir']
     stack = options['stack']
     cfgdir = options['cfgdir']
+    if stack not in _get_stacks(stackdir):
+        sys.stderr.write('Can not delete '+stack+' because it does not exist\n\n')
+        sys.exit(15)
+
     if 'port' in options.keys():
         port = options['port']
     else:
@@ -219,12 +219,12 @@ def delete_stack(options):
         options['port'] = port
 
     pid = _running_server(stack, cfgdir, port)
-    print pid
-    if _check_port(port) and pid:  ###  Begin Here
+    if _check_port(port) and pid:
         _stop_server(pid)
 
-    if 'filename' in options.keys(): export_db(options)
- 
+    if 'filename' in options.keys() and options['filename'] != '':
+        export_db(options)
+
     ###  Delete stack file structure
 
     import shutil
@@ -240,6 +240,10 @@ def run_server(options):
 
     stackdir = options['stackdir']
     stack = options['stack']
+
+    if stack not in _get_stacks(stackdir):
+        sys.stderr.write('Unable to run '+stack+' because it does not exist\n\n')
+        sys.exit(14)
 
     if 'port' not in options.keys():
         pwd = os.getcwd()
@@ -312,16 +316,56 @@ for cmd in dir():
 ######  Place function definitions that CAN NOT be used as commands from the
 ######  command line BELOW this line.
 
+def _path_to_file(startdir, filename):
+    '''
+    Returns path to filename, starting from startdir.
+    '''
+
+    files = os.listdir(startdir)
+    for findfile in files:
+        filepath = startdir+'/'+findfile
+        if os.path.isdir(filepath): 
+            filepath = _path_to_file(filepath, filename)
+            if type(filepath) == type('text'):
+                findfile = filepath.split('/')[-1]
+            else:
+                findfile, filepath = '',''
+        if os.path.isfile(filepath) and findfile == filename:
+            return filepath
+
+def _populate_wsgi(stackdir, wsgi_options, wsgipath, apachedir):
+    '''
+    Writes the wsgi.conf file for the Django stacks deployed.
+    '''
+
+    wsgi_text = wsgi_options['base_options']
+
+    stacks = _get_stacks(stackdir)
+    for stack in stacks:
+        stackpath = stackdir+'/'+stack
+        projects = _get_stacks(stackpath)
+        wsgipy = _path_to_file(stackpath, 'wsgi.py')
+        
+        wsgi_text = wsgi_text+'###  '+stack+' wsgi connector\n'
+        wsgi_text = wsgi_text+'WSGIProcessGroup '+stack+'\n'
+        wsgi_text = wsgi_text+'WSGIPythonPath '+stackpath+':'+wsgipath+'\n'
+        wsgi_text = wsgi_text+'WSGIDaemonProcess '+stack+' processes=2 threads=12 \\\n'
+        wsgi_text = wsgi_text+'    python-path='+stackpath+':'+stackpath
+        wsgi_text = wsgi_text+'/'+projects[0]+':'+wsgipath+'\n'
+        wsgi_text = wsgi_text+'WSGIScriptAlias /deploy_stack/'+stack+' '
+        wsgi_test = wsgi_text+wsgipy+' process-group='+stack+'\n'
+        wsgi_text = wsgi_text+'WSGIScriptReloading On\n\n'
+
+    wsgi_text = wsgi_text+'\n'
+    wsgi_text = wsgi_text+wsgi_options['main_site']
+
+    _check_dir(apachedir)
+    _write_file(apachedir+'/wsgi.conf', wsgi_text)
+
 def _populate_settings(stack, stackdir, cfgdir, options = {'port_range': '(8000, 8010)'}):
     '''
     Add standard options into the [stack]/stack_settings.py file.
     '''
-
-    ###  options_txt is a text blob that contains the default options and
-    ###  comments for the [stack]/settings.py file.  Add a line to the file
-    ###  by adding a line to the text blob.  Options within the file are
-    ###  bracketted by percens, '%%...%%'.  The text between the percens 
-    ###  is a dictionary keyword that replaces the token with its value.
 
     port = _free_port(options['port_range'], stackdir, cfgdir)
     options_txt = '''
@@ -400,7 +444,6 @@ def _running_server(stack, cfgdir, port):
         pid_file.close()
         import psutil
         cmdline = psutil.Process(int(pid)).cmdline()
-        print cmdline
         if 'run_server' in cmdline and stack in cmdline:
             for proc in psutil.Process(int(pid)).get_children():
                 for conn in proc.get_connections('tcp'):
