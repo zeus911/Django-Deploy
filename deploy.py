@@ -172,6 +172,10 @@ def create_stack(options):
         os.mkdir(stackdir+'/'+stack)
         if not os.path.isdir(cfgdir+'/'+stack):
             os.mkdir(cfgdir+'/'+stack)
+    if 'git_url' in options.keys() or 'git' in options.keys():
+        git = True
+    else:
+        git = False
 
     ###  Need to put a call to manage.py to install a django project into 
     ###  a stack.  Need to decide how it is going to support multiple
@@ -181,11 +185,12 @@ def create_stack(options):
     if 'project' in options.keys():
         project = options['project']
         _add_project(stackdir+'/'+stack, project)
+        if 'git' in options.keys():
+           _git_init(stackdir+'/'+stack) 
         if 'app' in options.keys():
             app = options['app']
             _add_app(stackdir+'/'+stack+'/'+project, app)
-    elif 'git_url' in options.keys() or 'git' in options.keys():
-        git = True
+    elif git:
         if 'git_url' not in options.keys():
             options['git_url'] = _get_git_options(stackdir+'/'+stack)
         _git_clone(options)
@@ -196,7 +201,8 @@ def create_stack(options):
         wsgi_options = options['wsgi_options']
         wsgi_path = options['wsgi_path']
         apache_dir = options['apache_dir']
-        _populate_wsgi(stackdir, wsgi_options, wsgi_path, apache_dir)
+        if 'project' in options.keys() or git == True:
+            _populate_wsgi(stackdir, wsgi_options, wsgi_path, apache_dir)
 
 def delete_stack(options):
     '''
@@ -231,6 +237,9 @@ def delete_stack(options):
     shutil.rmtree(stackdir+'/'+stack)
     if os.path.isdir(cfgdir+'/'+stack):
         shutil.rmtree(cfgdir+'/'+stack)
+    if os.path.isfile(cfgdir+'/'+stack+'_pid'):
+        os.remove(cfgdir+'/'+stack+'_pid')
+
 
 def run_server(options):
     '''
@@ -443,6 +452,10 @@ def _running_server(stack, cfgdir, port):
         pid = pid_file.read()
         pid_file.close()
         import psutil
+        try:
+            status = psutil.Process(int(pid)).status()
+        except:
+            return False
         cmdline = psutil.Process(int(pid)).cmdline()
         if 'run_server' in cmdline and stack in cmdline:
             for proc in psutil.Process(int(pid)).get_children():
@@ -465,6 +478,9 @@ def _stop_server(pid):
     gone, alive = psutil.wait_procs([server], timeout = 3)
     while server in alive:
         server.kill()
+
+    if os.path.isfile(cfgdir+'/'+stack+'_pid'):
+        os.remove(cfgdir+'/'+stack+'_pid')
 
 def _get_module_settings(mod_location):
     '''
@@ -557,6 +573,14 @@ def _add_app(stackdir, app):
 
     os.chdir(pwd)
 
+def _git_init(git_dir):
+    '''
+    Initialize a stack with a git repository.
+    '''
+
+    import git
+    repo = git.Repo.init(git_dir)
+   
 def _git_clone(options):
     '''
     Clone a Git repository into a directory structure based on a Git URL.
