@@ -191,8 +191,8 @@ def create_stack(options):
             app = options['app']
             _add_app(stackdir+'/'+stack+'/'+project, app)
     elif git:
-        if 'git_url' not in options.keys():
-            options['git_url'] = _get_git_options(stackdir+'/'+stack)
+        #if 'git_url' not in options.keys():
+        #    options['git_url'] = _get_git_options(stackdir+'/'+stack)
         _git_clone(options)
 
     if options['connector'] in ('port', 'both'):
@@ -293,7 +293,12 @@ def sync_db(options):
     project = _get_project(stackdir+'/'+stack)
     exec_dir = stackdir+'/'+stack+'/'+project
     mod_settings_obj = _get_module_settings(exec_dir+'/manage.py')
-    cmd=['syncdb', '--noinput']  #  alter this is accept noinput as a cmdline option
+    if input in options.keys():
+        if options['input'] == 'True' or options['input'] == True:
+            cmd=['syncdb']
+        else:
+            cmd=['syncdb', '--noinput']
+    else: cmd=['syncdb']
     _execute_cmd(cmd, mod_settings_obj, exec_dir)
 
 def stop_server(options):
@@ -601,11 +606,17 @@ def _git_clone(options):
     new_options = _get_git_options(locations)
 
     for option in new_options.keys():
-        git_options[option] = new_options[options]
+        git_options[option] = new_options[option]
+
     del new_options, locations
 
-    git_url = options['git_url']
+    if 'git_url' in options.keys():
+        git_url = options['git_url']
+    elif 'git_url' in git_options.keys():
+        git_url = git_options['git_url']
+
     stack_location = options['stackdir']+'/'+options['stack']
+
     if 'git_branch' in options.keys(): 
         git_branch = options['git_branch']
         repo = git.Repo.clone_from(git_url, stack_location, branch = git_branch)
@@ -643,10 +654,14 @@ def _get_git_options(locations):
     for location in locations:
         git_file = location+'/git_settings.py'
         if os.path.isfile(git_file):
-            exec('from '+git_file+' import git_options')
+            path=sys.path
+            sys.path=[os.path.dirname(git_file)]
+            from git_settings import git_options
+            sys.path=path
             for option in git_options.keys():
                 new_options[option] = git_options[option]
-            del git_options
+            del git_options, path
+
     return new_options
 
 def _free_port(port_range, stackdir, cfgdir):
@@ -704,7 +719,7 @@ def _get_locations(start_dir, filename):
         start_dir = os.path.split(start_dir)[0]
 
     for location in locations:
-        if not os.isfile(location+'/'+filename):
+        if not os.path.isfile(location+'/'+filename):
             locations.remove(location)
 
     locations.reverse()
@@ -779,10 +794,31 @@ if len(sys.argv) == 1:
     execute_from_command_line()
 
 elif sys.argv[1] in localcmds:
+    from git_settings import git_options
     cmd = sys.argv[1]
     options['stack'] = sys.argv[2]
-    for argv in range(0, len(sys.argv[3:])/2):
-        options[sys.argv[3+(argv*2)]] = sys.argv[4+(argv * 2)]
+    cmd_line_options=sys.argv[3:]
+    single_options = [
+        'git',
+        ]
+    paired_options = options.keys()+git_options.keys()
+    while len(cmd_line_options) >= 1:
+        option = cmd_line_options[0]
+        if option in single_options:
+            exec('options[\''+option+'\'] = True')
+            cmd_line_options=cmd_line_options[1:]
+        elif option in paired_options:
+            exec('options[\''+option+'\'] = \''+cmd_line_options[1]+'\'')
+            cmd_line_options = cmd_line_options[2:]
+        elif option in ('No', 'NO', 'no'):
+            exec('options[\''+cmd_line_options[1]+'\'] = False')
+            cmd_line_options = cmd_line_options[2:]
+        else:
+            sys.stderr.write('%s not an option that can be set' % cmd_line_options[0])
+            sys.exit[44]
+
+    #for argv in range(0, len(sys.argv[3:])/2):
+    #    options[sys.argv[3+(argv*2)]] = sys.argv[4+(argv * 2)]
     call = globals()[cmd]
     call(options)
 

@@ -12,9 +12,12 @@ import os, sys
 
 git_options = {}
 
-# baseurl is the base URL for the Git repository for the code base being used
-git_options['baseurl'] = 'https://github.com/bethlakshmi/GBE2'
-
 # git_user is the user to use to access the Git repository.  Needs to be set
 # for different users.
-git_options['git_user'] = ''
+git_options['git_user'] = 'BenignCremator'
+git_options['git_user_name'] = 'Hunter'
+git_options['git_user_email'] = 'dracus@speakeasy.net'
+
+# git_url is the default URL for git to access when cloning, pushing, etc
+git_options['git_url'] = 'https://github.com/bethlakshmi/GBE2'
+
