@@ -293,7 +293,7 @@ def sync_db(options):
     project = _get_project(stackdir+'/'+stack)
     exec_dir = stackdir+'/'+stack+'/'+project
     mod_settings_obj = _get_module_settings(exec_dir+'/manage.py')
-    if input in options.keys():
+    if 'input' in options.keys():
         if options['input'] == 'True' or options['input'] == True:
             cmd=['syncdb']
         else:
@@ -810,9 +810,13 @@ elif sys.argv[1] in localcmds:
         elif option in paired_options:
             exec('options[\''+option+'\'] = \''+cmd_line_options[1]+'\'')
             cmd_line_options = cmd_line_options[2:]
-        elif option in ('No', 'NO', 'no'):
-            exec('options[\''+cmd_line_options[1]+'\'] = False')
-            cmd_line_options = cmd_line_options[2:]
+        elif option[:2] in ('No', 'NO', 'no'):
+            if len(option) == 2:
+                exec('options[\''+cmd_line_options[1]+'\'] = False')
+                cmd_line_options = cmd_line_options[2:]
+            else:
+                exec('options[\''+option[2:]+'\'] = False')
+                cmd_line_options = cmd_line_options[1:]
         else:
             sys.stderr.write('%s not an option that can be set' % cmd_line_options[0])
             sys.exit[44]
