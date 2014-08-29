@@ -21,3 +21,5 @@ git_options['git_user_email'] = 'dracus@speakeasy.net'
 # git_url is the default URL for git to access when cloning, pushing, etc
 git_options['git_url'] = 'https://github.com/bethlakshmi/GBE2'
 
+# git_branch is the branch git will use for cloning, pushing, etc.
+git_options['git_branch'] = 'Main'
