@@ -676,7 +676,10 @@ def _free_port(port_range, stackdir, cfgdir):
     for stack in _get_stacks(stackdir):
         if os.path.isfile(cfgdir+'/'+stack+'/stack_settings.py'):
             stack_options = _options_import(cfgdir+'/'+stack+'/stack_settings.py', 'stack_options')
-            port = stack_options['port']
+            if 'port' in stack_options.keys():
+                port = stack_options['port']
+            else:
+                port = False
         else: port = False
 
         if type(port) == type('text'):
@@ -695,9 +698,12 @@ def _options_import(import_file, return_obj = ''):
     Such as:  'port', ['port', 'url', 'service'], or ('port', 'url', 'service').
     '''
 
+    return_var = return_obj.split('[')[0]
+    exec(return_var+' = {}')
     import_text = open(import_file, 'r')
     for line in import_text.readlines():
-        exec(line)
+        if return_var in line:
+            exec(line)
 
     if return_obj != '' or return_obj != '*':
         exec('return_obj = '+return_obj)
