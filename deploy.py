@@ -825,7 +825,7 @@ elif sys.argv[1] in localcmds:
                 cmd_line_options = cmd_line_options[1:]
         else:
             sys.stderr.write('%s not an option that can be set' % cmd_line_options[0])
-            sys.exit[44]
+            sys.exit(44)
 
     #for argv in range(0, len(sys.argv[3:])/2):
     #    options[sys.argv[3+(argv*2)]] = sys.argv[4+(argv * 2)]
