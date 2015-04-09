@@ -332,7 +332,8 @@ for cmd in dir():
 
 def _path_to_file(startdir, filename):
     '''
-    Returns path to filename, starting from startdir.
+    Returns path to filename, starting from startdir.  Return False if not 
+    found.
     '''
 
     files = os.listdir(startdir)
@@ -346,6 +347,7 @@ def _path_to_file(startdir, filename):
                 findfile, filepath = '',''
         if os.path.isfile(filepath) and findfile == filename:
             return filepath
+    return False
 
 def _populate_wsgi(stackdir, wsgi_options, wsgipath, apachedir):
     '''
@@ -359,16 +361,17 @@ def _populate_wsgi(stackdir, wsgi_options, wsgipath, apachedir):
         stackpath = stackdir+'/'+stack
         projects = _get_stacks(stackpath)
         wsgipy = _path_to_file(stackpath, 'wsgi.py')
-        
-        wsgi_text = wsgi_text+'###  '+stack+' wsgi connector\n'
-        wsgi_text = wsgi_text+'WSGIProcessGroup '+stack+'\n'
-        wsgi_text = wsgi_text+'WSGIPythonPath '+stackpath+':'+wsgipath+'\n'
-        wsgi_text = wsgi_text+'WSGIDaemonProcess '+stack+' processes=2 threads=12 \\\n'
-        wsgi_text = wsgi_text+'    python-path='+stackpath+':'+stackpath
-        wsgi_text = wsgi_text+'/'+projects[0]+':'+wsgipath+'\n'
-        wsgi_text = wsgi_text+'WSGIScriptAlias /deploy_stack/'+stack+' '
-        wsgi_text = wsgi_text+wsgipy+' process-group='+stack+'\n'
-        wsgi_text = wsgi_text+'WSGIScriptReloading On\n\n'
+
+        if wsgipy:        
+            wsgi_text = wsgi_text+'###  '+stack+' wsgi connector\n'
+            wsgi_text = wsgi_text+'WSGIProcessGroup '+stack+'\n'
+            wsgi_text = wsgi_text+'WSGIPythonPath '+stackpath+':'+wsgipath+'\n'
+            wsgi_text = wsgi_text+'WSGIDaemonProcess '+stack+' processes=2 threads=12 \\\n'
+            wsgi_text = wsgi_text+'    python-path='+stackpath+':'+stackpath
+            wsgi_text = wsgi_text+'/'+projects[0]+':'+wsgipath+'\n'
+            wsgi_text = wsgi_text+'WSGIScriptAlias /deploy_stack/'+stack+' '
+            wsgi_text = wsgi_text+wsgipy+' process-group='+stack+'\n'
+            wsgi_text = wsgi_text+'WSGIScriptReloading On\n\n'
 
     wsgi_text = wsgi_text+'\n'
     wsgi_text = wsgi_text+wsgi_options['main_site']
