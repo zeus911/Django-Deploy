@@ -279,7 +279,7 @@ def run_server(options):
         mod_location = stackdir+'/'+stack+'/'+project
         mod_settings_obj = _get_module_settings(mod_location+'/manage.py')
         log_file = mod_location+'/server_log.txt'
-        _popen_cmd(cmd, mod_settings_obj, mod_location, log_file, cfgdir+'/'+stack+'_pid')
+        _popen_cmd(cmd, cfgdir, stack, mod_settings_obj, mod_location, log_file)
 
 def sync_db(options):
     '''
@@ -551,7 +551,7 @@ def _execute_cmd(cmd, mod_settings_obj = '', exec_dir = ''):
     sys.path.remove(exec_dir)
     os.chdir(pwd)
 
-def _popen_cmd(cmd, mod_settings_obj = '', exec_dir = '', log_file = '', pid_file = ''):
+def _popen_cmd(cmd, cfgdif, stack, mod_settings_obj = '', exec_dir = '', log_file = '', pid_file = ''):
     '''
     Uses Popen with nohup to create a new process that runs independently of the deploy script.  Allows logging of
     cmd line messages to 'log_file'.  
@@ -577,8 +577,12 @@ def _popen_cmd(cmd, mod_settings_obj = '', exec_dir = '', log_file = '', pid_fil
         logfile = open(os.devnull, 'wb')
     else:
         logfile = open(log_file, 'w')
-    Popen(argvs, stdout=logfile, stderr=logfile)
-    ###  Add populating a pid file here.
+    external_cmd = Popen(argvs, stdout=logfile, stderr=logfile)
+    if pid_file == '':
+        pid_file = cfgdir + '/' + stack +'_pid'
+    pidfile = open(pid_file, 'w')
+    pidfile.write(str(external_cmd.pid))
+    pidfile.close()
     sys.path.remove(exec_dir)
     os.chdir(pwd)
 
