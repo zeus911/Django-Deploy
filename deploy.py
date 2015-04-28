@@ -271,17 +271,15 @@ def run_server(options):
     if port == False:
         sys.exit('No port for '+stack+' defined.  Check configuration.')
     if not _check_port(port):
-        print 'Service running on port '+port+'.  Check configuration or'
-        print 'for conflicting service.'
+        print 'Service running on port '+port+'.  Check configuration for conflicting service.'
     else:
-        cmd = ['manage.py', 'runserver', port]
+        ###  Add in check for IP address to run server as.  Using 0.0.0.0 for now.
+        cmd = ['manage.py', 'runserver', '0.0.0.0:'+port]
         project = _get_project(stackdir+'/'+stack)
         mod_location = stackdir+'/'+stack+'/'+project
         mod_settings_obj = _get_module_settings(mod_location+'/manage.py')
-        pidfile = open(cfgdir+'/'+stack+'_pid', 'w')
-        pidfile.write(str(os.getpid()))
-        pidfile.close()
-        _execute_cmd(cmd, mod_settings_obj, mod_location)
+        log_file = mod_location+'/server_log.txt'
+        _popen_cmd(cmd, mod_settings_obj, mod_location, log_file, cfgdir+'/'+stack+'_pid')
 
 def sync_db(options):
     '''
@@ -550,6 +548,37 @@ def _execute_cmd(cmd, mod_settings_obj = '', exec_dir = ''):
     from django.core.management import execute_from_command_line
     sys.path.append(exec_dir)
     execute_from_command_line(sys.argv)
+    sys.path.remove(exec_dir)
+    os.chdir(pwd)
+
+def _popen_cmd(cmd, mod_settings_obj = '', exec_dir = '', log_file = '', pid_file = ''):
+    '''
+    Uses Popen with nohup to create a new process that runs independently of the deploy script.  Allows logging of
+    cmd line messages to 'log_file'.  
+    '''
+
+    py_loc = sys.executable
+    if cmd[0] not in ('django_admin.py', 'manage.py'):
+        if mod_settings_obj == '':
+            argvs = [py_loc, 'django_admin.py'] + cmd
+        else:
+            argvs = [py_loc, 'manage.py'] + cmd
+            os.environ.setdefault("DJANGO_SETTINGS_MODULE", mod_settings_obj)
+    elif cmd[0] == 'manage.py':
+        argvs = [py_loc] + cmd
+        os.environ.setdefault("DJANGO_SETTINGS_MODULE", mod_settings_obj)
+    argvs.insert(0, 'nohup')
+    pwd = os.getcwd()
+    if os.path.isdir(exec_dir):
+        os.chdir(exec_dir)
+    from subprocess import Popen
+    sys.path.append(exec_dir)
+    if log_file =='':
+        logfile = open(os.devnull, 'wb')
+    else:
+        logfile = open(log_file, 'w')
+    Popen(argvs, stdout=logfile, stderr=logfile)
+    ###  Add populating a pid file here.
     sys.path.remove(exec_dir)
     os.chdir(pwd)
 
