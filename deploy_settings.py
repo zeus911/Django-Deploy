@@ -89,9 +89,9 @@ WSGILazyInitialization On
 WSGIProcessGroup gbetest
 WSGIPythonPath /home/gbeadmin/webapps/gbetest/expo:/home/gbeadmin/webapps/gbetest/lib/python2.7
 WSGIDaemonProcess gbetest \
-    processes=2 threads=12 \
+    processes=2 threads=4 \
     python-path=/home/gbeadmin/webapps/gbetest:/home/gbeadmin/webapps/gbetest/expo:/home/gbeadmin/webapps/gbetest/lib/python2.7
-WSGIScriptAlias / /home/gbeadmin/webapps/gbetest/expo/expo/wsgi.py process-group=gbetest
+WSGIScriptAlias / /home/gbeadmin/webapps/gbetest/expo/expo/wsgi.py process-group=gbetest application-group=%{GLOBAL}
 WSGIScriptReloading On
 
 ''',
