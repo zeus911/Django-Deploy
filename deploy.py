@@ -278,7 +278,7 @@ def run_server(options):
         project = _get_project(stackdir+'/'+stack)
         mod_location = stackdir+'/'+stack+'/'+project
         mod_settings_obj = _get_module_settings(mod_location+'/manage.py')
-        log_file = mod_location+'/server_log.txt'
+        log_file = stackdir+'/'+stack+'/server_log.txt'
         _popen_cmd(cmd, cfgdir, stack, mod_settings_obj, mod_location, log_file)
 
 def sync_db(options):
@@ -551,7 +551,7 @@ def _execute_cmd(cmd, mod_settings_obj = '', exec_dir = ''):
     sys.path.remove(exec_dir)
     os.chdir(pwd)
 
-def _popen_cmd(cmd, cfgdif, stack, mod_settings_obj = '', exec_dir = '', log_file = '', pid_file = ''):
+def _popen_cmd(cmd, cfgdir, stack, mod_settings_obj = '', exec_dir = '', log_file = '', pid_file = ''):
     '''
     Uses Popen with nohup to create a new process that runs independently of the deploy script.  Allows logging of
     cmd line messages to 'log_file'.  
@@ -736,17 +736,43 @@ def _options_import(import_file, return_obj = ''):
 
     return_var = return_obj.split('[')[0]
     exec(return_var+' = {}')
-    import_text = open(import_file, 'r')
-    for line in import_text.readlines():
-        if return_var in line:
-            exec(line)
+
+    if os.path.isfile(import_file):
+        import_text = open(import_file, 'r')
+        for line in import_text.readlines():
+            if return_var in line:
+                exec(line)
+    else:
+        return_obj = _default_options
 
     if return_obj != '' or return_obj != '*':
         exec('return_obj = '+return_obj)
         return return_obj
     else:
-        pass
-        #  Not certain how to deal with this case yet
+        return_obj = _default_options
+
+def _default_options():
+    '''
+    Returns the default options for a newly created stack, doing things like finding a new, unused
+    port, set git_url from site settings, etc.  Or, it will once done.
+    '''
+
+    return_obj = {}
+
+    return_obj['port'] = _next_port()
+
+    return return_obj
+
+def _next_port(port_range = False):
+    '''
+    Returns the next free port, based on the port range defined in the overall site configs, and 
+    which stacks have ports in use.
+    '''
+
+    if not port_range:
+        port_range = 
+
+    return _free_port(port_range)
 
 def _get_locations(start_dir, filename):
     '''
