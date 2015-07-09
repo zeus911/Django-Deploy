@@ -743,25 +743,31 @@ def _options_import(import_file, return_obj = ''):
             if return_var in line:
                 exec(line)
     else:
-        return_obj = _default_options
+        return_obj = '' # Need to write a good default options widget
 
-    if return_obj != '' or return_obj != '*':
+    print return_obj
+    if return_obj is not '' and return_obj is not '*':
         exec('return_obj = '+return_obj)
         return return_obj
     else:
-        return_obj = _default_options
+        return_obj = '' # Need to write a good default options widget
+        return False
 
-def _default_options():
+def _in_path(check_path, file_name):
     '''
-    Returns the default options for a newly created stack, doing things like finding a new, unused
-    port, set git_url from site settings, etc.  Or, it will once done.
+    Checks for file in path, returns all paths file occurs in as list, return False if none.
     '''
 
-    return_obj = {}
+    return_path = []
 
-    return_obj['port'] = _next_port()
+    for cdir in check_path:
+        if os.path.isfile(cdir+'/'+file_name):
+            return_path.append(cdir)
 
-    return return_obj
+    if len(return_path):
+        return return_path
+    else:
+        return False
 
 def _next_port(port_range = False):
     '''
@@ -770,7 +776,7 @@ def _next_port(port_range = False):
     '''
 
     if not port_range:
-        port_range = 
+        port_range = options['port_range']
 
     return _free_port(port_range)
 
